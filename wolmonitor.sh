@@ -24,26 +24,7 @@ DUMPFILT_WAN="(tcp dst port 8000 or tcp dst port 9091)"
 # --- Function that monitoring the traffic and if get "$PCOUNT" packets do wake on lan for host with "$MACAD"
 TCPDUMP_FUNC()
 {
-if [ $1 = "DUMP1" ]
-then
-DUMP=`tcpdump -i $ETHINT1 -c $PCOUNT -ntq dst $DSTIP1 and $DUMPFILT_LAN` # LAN+WLAN
-elif [ $1 = "DUMP2" ]
-then
-DUMP=`tcpdump -i $ETHINT2 -c $PCOUNT -ntq dst $DSTIP1 and $DUMPFILT_LAN` # OPENVPN
-elif [ $1 = "DUMP3" ]
-# Wolmonitor ver. 0.8 (01.2017)
-# By Goodinov A.V.
-# This is the programm for monitoring ethernet traffic and do "wake on lan" (WOL) for some Host.
-then
-DUMP=`tcpdump -i $ETHINT3 -c $PCOUNT -ntq dst $DSTIP2 and $DUMPFILT_WAN` # WAN
-fi
 
-if [ -n "$DUMP" ] # If string not null (get a filtered packets)
-    then ether-wake -i $ETHINT1 $MACAD # Do the WOL
-    else echo "WARNING: ERROR! There is some errors in 'tcpdump' or 'ether-wake' programm."
-    break
-    exit 3
-fi
 }
 
 # ------ Main cycle -----
@@ -53,7 +34,20 @@ SNIF_CYCLE()
     PING=`ping -I $ETHINT1 -s 1 -c 3 -W 2 $DSTIP1 | grep "100% packet loss"` # $
         if [ -n "$PING" ] # If string is not null (Host is sleeping)
         then
-        TCPDUMP_FUNC $DUMPARG  # Start dumping packets
+
+if [ $DUMPARG = "ra0" or $DUMPARG = "rai0" or $DUMPARG = "tun1" ]
+then DUMP=`tcpdump -i $DUMPARG -c $PCOUNT -ntq dst $DSTIP1 and $DUMPFILT_LAN` # LAN+WLAN / OPENVPN
+else DUMP=`tcpdump -i $DUMPARG -c $PCOUNT -ntq dst $DSTIP2 and $DUMPFILT_WAN` # WAN
+fi
+
+if [ -n "$DUMP" ] # If string not null (get a filtered packets)
+    then ether-wake -i $ETHINT1 $MACAD # Do the WOL
+    else echo "WARNING: ERROR! There is some errors in 'tcpdump' or 'ether-wake' programm."
+    break
+    exit 3
+fi
+
+                 
         echo "Ping is null. I get packets! WOL Magic Packet send ok!"
         else echo "Ping is OK. Host don't sleep." #>> /dev/null
         fi
